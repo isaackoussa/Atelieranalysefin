@@ -98,7 +98,7 @@ function signOutLocal(message) {
   account = null;
   store.set('account', null);
   syncState = { status: 'idle', message };
-  updateAccountUI();
+  render();
 }
 function syncText() {
   if (!account) return syncState.message || '';
@@ -319,7 +319,6 @@ function viewHome() {
       ${tile('Exercices réussis', `${e.correct} / ${e.done}`, e.done ? `${Math.round(e.correct / e.done * 100)} % de réussite` : 'Aucun exercice pour l’instant')}
       ${tile('Mini-test final', progress.tests?.best ? progress.tests.best + ' %' : '–', 'meilleur score')}
     </div>
-    ${account ? '' : '<div class="insight"><h4>Sauvegardez votre progression</h4><a href="#/compte">Connectez-vous avec votre e-mail</a> pour retrouver vos cours, cas et scores sur tous vos appareils.</div>'}
     <div class="grid grid-2">
       ${[
         ['#/cours', 'Cours', '8 chapitres et 20 ratios expliqués : formule, exemple chiffré, grille de lecture, repères sectoriels, pièges et quiz d\u2019interprétation.'],
@@ -1262,15 +1261,17 @@ function viewCompte(notice) {
     document.getElementById('syncBtn').onclick = () => syncNow();
     document.getElementById('logoutBtn').onclick = async () => {
       try { await api('logout', { auth: true }); } catch { /* session déjà invalide : on déconnecte quand même */ }
-      signOutLocal('Vous êtes déconnecté. Votre progression reste disponible sur cet appareil.');
-      viewCompte();
+      signOutLocal('Vous êtes déconnecté. Reconnectez-vous pour reprendre là où vous en étiez.');
     };
     return;
   }
   const step = pendingEmail ? 'code' : 'email';
   app.innerHTML = `
-    <h1>Mon compte</h1>
-    <p class="muted" style="max-width:62ch">Connectez-vous avec votre adresse e-mail pour sauvegarder votre progression (cours, cas pratiques, exercices, mini-test) et la retrouver sur tous vos appareils. Pas de mot de passe : vous recevez un code à 6 chiffres par e-mail.</p>
+    <section class="hero" style="padding-top:8px">
+      <div class="eyebrow">Analyse financière et crédit : cours et pratique</div>
+      <h1>Bienvenue sur Atelier Crédit</h1>
+      <p>Cours sur les ratios, cas pratiques, simulateurs, exercices et mini-test. Pour accéder à l’app, connectez-vous avec votre adresse e-mail : vous recevez un code à 6 chiffres, sans mot de passe. Votre progression est sauvegardée sur votre compte et vous la retrouvez sur tous vos appareils.</p>
+    </section>
     ${notice || syncState.message ? `<div class="feedback info auth-card" style="margin-bottom:16px">${esc(notice || syncState.message)}</div>` : ''}
     <form class="card auth-card" id="authForm" novalidate>
       ${step === 'email' ? `
@@ -1318,8 +1319,10 @@ function viewCompte(notice) {
       account = { email: r.email, token: r.token };
       store.set('account', account);
       pendingEmail = null;
-      updateAccountUI();
-      viewCompte();
+      syncState = { status: 'sync' };
+      // Une fois connecté, on ouvre la page demandée (ou l'accueil si l'on venait de l'écran de connexion).
+      if (location.hash.startsWith('#/compte')) location.hash = '#/';
+      else render();
       syncNow();
     } catch (e) { busy(false); msg('ko', e.message); }
   };
@@ -1361,8 +1364,7 @@ function viewTest() {
         ${tile('Dernier score', hist.length ? `${hist[hist.length - 1].score} / ${hist[hist.length - 1].total}` : '–')}
       </div>
       <div class="btn-row" style="margin-bottom:16px"><button class="btn primary" id="startTest">Commencer le test →</button></div>
-      ${hist.length >= 2 ? `<div class="card chart-card"><h3>Vos scores au fil des tentatives</h3><div class="sub">En % de bonnes réponses</div><div class="chart-box"><canvas id="th"></canvas></div></div>` : ''}
-      ${account ? '' : '<p class="small muted"><a href="#/compte">Connectez-vous</a> pour conserver vos scores sur tous vos appareils.</p>'}`;
+      ${hist.length >= 2 ? `<div class="card chart-card"><h3>Vos scores au fil des tentatives</h3><div class="sub">En % de bonnes réponses</div><div class="chart-box"><canvas id="th"></canvas></div></div>` : ''}`;
     document.getElementById('startTest').onclick = startTest;
     if (hist.length >= 2) chart('th', {
       type: 'line',
@@ -1444,6 +1446,9 @@ function render() {
   const navView = view === 'test' ? 'cours' : view;
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.view === navView));
   updateAccountUI();
+  // L'app est réservée aux utilisateurs connectés : sans compte vérifié, on affiche l'écran de connexion.
+  document.body.classList.toggle('locked', !account);
+  if (!account) return viewCompte();
   switch (view) {
     case 'cours': arg ? viewChapter(arg, sub) : viewCoursIndex(); break;
     case 'test': if (testRun && testRun.i >= testRun.qs.length) testRun = null; viewTest(); break;

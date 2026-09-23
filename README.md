@@ -18,7 +18,7 @@ L'utilisateur saisit son adresse e-mail, reçoit un code à 6 chiffres envoyé p
 
 | Variable | Valeur |
 |---|---|
-| `BREVO_API_KEY` | Clé API Brevo (Brevo → SMTP & API → API Keys) |
+| `BREVO_API_KEY` | Clé API Brevo (Brevo → SMTP & API → API Keys), à marquer comme secrète |
 | `BREVO_SENDER_EMAIL` | Adresse d'expédition **validée dans Brevo** (Brevo → Senders, domains & dedicated IPs) |
 | `BREVO_SENDER_NAME` | Facultatif, par défaut « Atelier Crédit » |
 
@@ -27,7 +27,7 @@ Le stockage utilise Netlify Blobs, activé automatiquement sur Netlify, sans con
 - un envoi par minute et 5 par heure au maximum par adresse ;
 - les sessions durent 90 jours.
 
-Sans ces variables, l'app fonctionne normalement : la progression reste simplement enregistrée dans le navigateur.
+**L'accès à l'app est réservé aux utilisateurs connectés** : sans adresse e-mail vérifiée, seul l'écran de connexion s'affiche. Les variables Brevo sont donc indispensables : sans elles, personne ne peut entrer. Remarque : ce contrôle se fait dans le navigateur. Il suffit pour une app d'apprentissage, mais ne protège pas un contenu confidentiel (les fichiers du site restent publics).
 
 Tests de la logique de compte : `npm install` puis `npm test`.
 

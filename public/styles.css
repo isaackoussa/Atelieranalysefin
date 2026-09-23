@@ -295,3 +295,6 @@ table.matrix td { white-space: nowrap; }
 /* Mini-test */
 .test-card { max-width: 760px; }
 .test-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--ink-2); }
+
+/* Écran de connexion obligatoire */
+body.locked #nav, body.locked #accountBtn { display: none; }
