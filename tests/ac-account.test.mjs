@@ -97,4 +97,6 @@ test('appel Brevo : en-têtes et contenu', async () => {
   assert.deepEqual(body.to, [{ email: 'a@b.ci' }]);
   assert.match(body.subject, /123456/);
   await assert.rejects(brevoSender({})('a@b.ci', '1'), /non configuré/);
+  const refused = brevoSender({ apiKey: 'k', senderEmail: 'x@y.ci', fetchImpl: async () => ({ ok: false, status: 401, text: async () => '{"code":"unauthorized","message":"We have detected you are using an unrecognised IP address"}' }) });
+  await assert.rejects(refused('a@b.ci', '123456'), /Brevo 401 : We have detected you are using an unrecognised IP address/);
 });

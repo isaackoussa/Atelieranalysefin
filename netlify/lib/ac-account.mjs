@@ -124,8 +124,13 @@ export function brevoSender({ apiKey, senderEmail, senderName = 'Atelier Crédit
       }),
     });
     if (!res.ok) {
-      console.error('Brevo', res.status, await res.text());
-      throw new HttpError(502, 'L’e-mail n’a pas pu être envoyé. Réessayez dans quelques instants.');
+      const text = await res.text();
+      console.error('Brevo', res.status, text);
+      // On affiche la raison donnée par Brevo (expéditeur non validé, IP non autorisée, compte non activé…)
+      // pour que le propriétaire du site puisse corriger la configuration.
+      let reason = '';
+      try { reason = JSON.parse(text).message || ''; } catch { /* réponse non JSON */ }
+      throw new HttpError(502, `L’e-mail n’a pas pu être envoyé (Brevo ${res.status}${reason ? ' : ' + reason.slice(0, 200) : ''}).`);
     }
   };
 }
