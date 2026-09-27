@@ -14,7 +14,7 @@ const store = {
   },
 };
 const progress = store.get('progress', { cases: {}, exo: { done: 0, correct: 0, streak: 0, best: 0 } });
-const saveProgress = () => { store.set('progress', progress); schedulePush(); };
+const saveProgress = () => { store.set('progress', progress); schedulePush(); renderSidebar(); };
 const caseProgress = id => (progress.cases[id] ||= { answered: {}, decision: null, step: 0 });
 
 // ---------- Compte (e-mail vérifié par code) et synchronisation de la progression ----------
@@ -110,14 +110,13 @@ function syncText() {
   }
 }
 function updateAccountUI() {
-  const btn = document.getElementById('accountBtn');
-  if (btn) {
-    btn.textContent = account ? account.email : 'Se connecter';
-    btn.title = account ? 'Mon compte : ' + syncText() : 'Se connecter pour sauvegarder sa progression';
-    btn.classList.toggle('on', !!account);
-  }
-  const el = document.getElementById('syncStatus');
-  if (el) el.textContent = syncText();
+  const initial = account ? account.email.charAt(0) : '?';
+  const set = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
+  set('sideAvatar', el => { el.textContent = initial; });
+  set('mobileAvatar', el => { el.textContent = initial; });
+  set('sideEmail', el => { el.textContent = account ? account.email : 'Non connecté'; });
+  set('accountBtn', el => { el.title = account ? syncText() : 'Se connecter'; });
+  set('syncStatus', el => { el.textContent = syncText(); });
 }
 
 // ---------- Thème ----------
@@ -306,28 +305,41 @@ const fmtAns = q => `la réponse est <b>${q.answer.toLocaleString('fr-FR', { max
 function viewHome() {
   const done = CASES.filter(c => progress.cases[c.id]?.decision).length;
   const e = progress.exo;
+  const pr = overallProgress();
+  const name = account ? account.email.split('@')[0].split(/[._\-+]/)[0].replace(/\d+/g, '') : '';
+  const firstName = name ? name.charAt(0).toUpperCase() + name.slice(1) : '';
+  // Prochaine étape conseillée : le premier chapitre non validé, puis le premier cas non terminé, puis le mini-test.
+  const nextCh = CHAPTERS.find(ch => !progress.cours?.[ch.id]);
+  const nextCase = CASES.find(c => !progress.cases[c.id]?.decision);
+  const next = nextCh ? { href: `#/cours/${nextCh.id}`, label: `Chapitre ${CHAPTERS.indexOf(nextCh) + 1} : ${nextCh.title}`, kind: 'Cours' }
+    : nextCase ? { href: `#/cas/${nextCase.id}`, label: nextCase.name, kind: 'Cas pratique' }
+    : { href: '#/test', label: 'Mini-test final', kind: 'Test' };
+  const modules = [
+    ['#/cours', '📘', 'Cours', `${CHAPTERS.length} chapitres et ${Object.keys(RATIOS).length} ratios expliqués : formule, exemple chiffré, grille de lecture, pièges et quiz.`],
+    ['#/cas', '🏦', 'Cas pratiques', `${CASES.length} entreprises, 3 niveaux : de la lecture des comptes jusqu’à la décision de crédit.`],
+    ['#/test', '🎯', 'Mini-test final', '10 questions tirées dans tous les chapitres, avec votre score par chapitre.'],
+    ['#/labo', '📈', 'Simulateurs', 'Délais clients, croissance, taux d’un prêt : voyez en direct l’effet sur la trésorerie.'],
+    ['#/exercices', '✏️', 'Exercices express', 'Des calculs avec des chiffres nouveaux à chaque tirage, corrigés pas à pas.'],
+    ['#/dossier', '🔎', 'Analyser un dossier', 'Saisissez les comptes d’une vraie entreprise : ratios, score et diagnostic.'],
+    ['#/fiches', '📋', 'Fiches méthode', 'L’essentiel en une page : formules, seuils bancaires et pièges classiques.'],
+  ];
   app.innerHTML = `
-    <section class="hero">
-      <div class="eyebrow">Analyse financière et crédit : cours et pratique</div>
-      <h1>Apprenez à lire des comptes comme un banquier.</h1>
-      <p>Des cours courts sur chaque ratio et son interprétation, puis de vrais dossiers de crédit (fictifs) : vous faites les calculs vous-même, les graphiques vous montrent ce que les chiffres racontent, et vous prenez la décision.</p>
-      <div class="btn-row"><a class="btn primary" href="#/cours">Commencer par le cours →</a><a class="btn" href="#/cas/${CASES[0].id}">Aller directement au premier cas</a></div>
+    <section class="welcome">
+      <div class="eyebrow">Analyse financière et crédit</div>
+      <h1>${firstName ? `Bonjour ${esc(firstName)} 👋` : 'Bienvenue 👋'}</h1>
+      <p>Apprenez à lire des comptes comme un banquier : des cours courts sur chaque ratio, puis de vrais dossiers de crédit où vous calculez, interprétez et décidez.</p>
+      <div class="btn-row"><a class="btn primary" href="${next.href}">Continuer : ${esc(next.label)} →</a></div>
+      <div class="welcome-progress"><span>Progression</span><div class="bar"><div style="width:${pr.pct}%"></div></div><b>${pr.pct} %</b></div>
     </section>
     <div class="tiles">
-      ${tile('Chapitres de cours validés', `${Object.keys(progress.cours || {}).length} / ${CHAPTERS.length}`, 'quiz terminé')}
+      ${tile('Chapitres validés', `${pr.chapters} / ${CHAPTERS.length}`, 'quiz terminé')}
       ${tile('Cas pratiques terminés', `${done} / ${CASES.length}`)}
-      ${tile('Exercices réussis', `${e.correct} / ${e.done}`, e.done ? `${Math.round(e.correct / e.done * 100)} % de réussite` : 'Aucun exercice pour l’instant')}
+      ${tile('Exercices réussis', `${e.correct} / ${e.done}`, e.done ? `${Math.round(e.correct / e.done * 100)} % de réussite` : 'Aucun pour l’instant')}
       ${tile('Mini-test final', progress.tests?.best ? progress.tests.best + ' %' : '–', 'meilleur score')}
     </div>
-    <div class="grid grid-2">
-      ${[
-        ['#/cours', 'Cours', '8 chapitres et 20 ratios expliqués : formule, exemple chiffré, grille de lecture, repères sectoriels, pièges et quiz d\u2019interprétation.'],
-        ['#/cas', 'Cas pratiques', `${CASES.length} entreprises, 3 niveaux. Vous suivez les 7 étapes d’analyse jusqu’à la décision de crédit et la note de crédit rédigée.`],
-        ['#/labo', 'Simulateurs', 'Faites varier les délais clients, la croissance ou le taux d’un prêt, et voyez en direct l’effet sur la trésorerie et le remboursement.'],
-        ['#/exercices', 'Exercices express', 'Des calculs avec des chiffres différents à chaque tirage (EBE, CAF, BFR, délais, annuités…), corrigés pas à pas.'],
-        ['#/dossier', 'Analyser un dossier', 'Saisissez les comptes d’une vraie entreprise : ratios, graphiques, score de risque et diagnostic automatique.'],
-        ['#/fiches', 'Fiches méthode', 'L’essentiel en une page : formules, seuils bancaires, pièges classiques et exemples chiffrés.'],
-      ].map(([href, t, d]) => `<a class="card module-link" href="${href}"><h3>${t}</h3><p class="muted">${d}</p></a>`).join('')}
+    <h2 class="section-title">Tous les modules</h2>
+    <div class="grid grid-3 modules">
+      ${modules.map(([href, icon, t, d]) => `<a class="card module-link" href="${href}"><span class="module-icon" aria-hidden="true">${icon}</span><div><h3>${t}</h3><p class="muted small">${d}</p></div></a>`).join('')}
     </div>`;
 }
 
@@ -1267,12 +1279,23 @@ function viewCompte(notice) {
   }
   const step = pendingEmail ? 'code' : 'email';
   app.innerHTML = `
-    <section class="hero" style="padding-top:8px">
-      <div class="eyebrow">Analyse financière et crédit : cours et pratique</div>
-      <h1>Bienvenue sur Atelier Crédit</h1>
-      <p>Cours sur les ratios, cas pratiques, simulateurs, exercices et mini-test. Pour accéder à l’app, connectez-vous avec votre adresse e-mail : vous recevez un code à 6 chiffres, sans mot de passe. Votre progression est sauvegardée sur votre compte et vous la retrouvez sur tous vos appareils.</p>
-    </section>
-    ${notice || syncState.message ? `<div class="feedback info auth-card" style="margin-bottom:16px">${esc(notice || syncState.message)}</div>` : ''}
+    <div class="gate">
+    <div class="gate-panel">
+      <div class="gate-brand"><img src="icons/icon.svg" alt="" width="44" height="44"><span>Atelier Crédit</span></div>
+      <div class="eyebrow" style="color:var(--side-accent)">Analyse financière et crédit</div>
+      <h1>Lisez des comptes comme un banquier</h1>
+      <p>Une app d’apprentissage par la pratique, pensée pour les étudiants et les futurs analystes crédit.</p>
+      <ul class="gate-list">
+        <li>${CHAPTERS.length} chapitres de cours et ${Object.keys(RATIOS).length} ratios expliqués</li>
+        <li>${CASES.length} cas pratiques jusqu’à la décision de crédit</li>
+        <li>Simulateurs, exercices et mini-test final</li>
+        <li>Progression sauvegardée sur tous vos appareils</li>
+      </ul>
+    </div>
+    <div class="gate-form">
+      <h2>${step === 'email' ? 'Connexion' : 'Vérification'}</h2>
+      <p class="muted small">${step === 'email' ? 'Pas de mot de passe : entrez votre adresse e-mail, vous recevrez un code à 6 chiffres.' : 'Saisissez le code reçu par e-mail.'}</p>
+    ${notice || syncState.message ? `<div class="feedback info" style="margin-bottom:16px">${esc(notice || syncState.message)}</div>` : ''}
     <form class="card auth-card" id="authForm" novalidate>
       ${step === 'email' ? `
         <label for="authEmail"><b>Adresse e-mail</b></label>
@@ -1283,7 +1306,9 @@ function viewCompte(notice) {
         <input id="authCode" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
         <div class="btn-row"><button class="btn primary" type="submit">Valider</button><button class="btn ghost" type="button" id="resendBtn">Renvoyer le code</button><button class="btn ghost" type="button" id="changeBtn">Changer d’adresse</button></div>`}
       <div id="authMsg"></div>
-    </form>`;
+    </form>
+    </div>
+    </div>`;
   const msg = (kind, text) => { document.getElementById('authMsg').innerHTML = `<div class="feedback ${kind}">${esc(text)}</div>`; };
   const form = document.getElementById('authForm');
   const busy = on => form.querySelectorAll('button').forEach(b => { b.disabled = on; });
@@ -1439,13 +1464,90 @@ function testResults() {
   document.getElementById('again').onclick = startTest;
 }
 
+// ---------- Menu latéral : progression, chapitres, recherche, tiroir mobile ----------
+function overallProgress() {
+  const chapters = Object.keys(progress.cours || {}).length;
+  const cases = CASES.filter(c => progress.cases?.[c.id]?.decision).length;
+  const test = progress.tests?.history?.length ? 1 : 0;
+  const total = CHAPTERS.length + CASES.length + 1;
+  return { done: chapters + cases + test, total, pct: Math.round((chapters + cases + test) / total * 100), chapters, cases };
+}
+let activeChapter = null;
+function renderSidebar(chapterId) {
+  if (chapterId !== undefined) activeChapter = chapterId;
+  const pr = overallProgress();
+  const txt = document.getElementById('sideProgressText');
+  if (!txt) return;
+  txt.textContent = `${pr.done} / ${pr.total}`;
+  document.getElementById('sideProgressBar').style.width = pr.pct + '%';
+  document.getElementById('sideChapters').innerHTML = CHAPTERS.map((ch, i) => {
+    const done = !!progress.cours?.[ch.id];
+    return `<li><a href="#/cours/${ch.id}" class="${activeChapter === ch.id ? 'active' : ''}"><span class="ring ${done ? 'done' : ''}" aria-label="${done ? 'Quiz validé' : 'À faire'}"></span><span class="n">${i + 1}.</span><span>${ch.title}</span></a></li>`;
+  }).join('');
+}
+function closeMenu() {
+  document.body.classList.remove('menu-open');
+  const scrim = document.getElementById('scrim');
+  if (scrim) scrim.hidden = true;
+  document.getElementById('menuBtn')?.setAttribute('aria-expanded', 'false');
+}
+(function initShell() {
+  const btn = document.getElementById('menuBtn');
+  const scrim = document.getElementById('scrim');
+  btn.addEventListener('click', () => {
+    const open = !document.body.classList.contains('menu-open');
+    document.body.classList.toggle('menu-open', open);
+    scrim.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  scrim.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
+  // Recherche dans les ratios, chapitres, cas pratiques et fiches.
+  const input = document.getElementById('sideSearch');
+  const box = document.getElementById('searchResults');
+  const norm = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const chapterOf = key => CHAPTERS.find(ch => ch.ratios.includes(key));
+  const index = () => [
+    ...Object.entries(RATIOS).map(([k, r]) => ({ label: r.name, kind: 'Ratio · ' + r.family, href: `#/cours/${chapterOf(k).id}/${k}`, text: r.name + ' ' + r.formula + ' ' + r.measure })),
+    ...CHAPTERS.map((ch, i) => ({ label: ch.title, kind: `Chapitre ${i + 1}`, href: `#/cours/${ch.id}`, text: ch.title + ' ' + ch.intro })),
+    ...CASES.map(c => ({ label: c.name, kind: 'Cas pratique · ' + c.level, href: `#/cas/${c.id}`, text: c.name + ' ' + c.sector + ' ' + c.pitch })),
+    ...FICHES.map(f => ({ label: f.title, kind: 'Fiche méthode', href: '#/fiches', text: f.title + ' ' + f.usage + ' ' + f.formula })),
+    { label: 'Mini-test final', kind: 'Test', href: '#/test', text: 'mini test quiz examen evaluation' },
+    { label: 'Simulateur de prêt', kind: 'Simulateur', href: '#/labo/pret', text: 'pret emprunt annuite amortissement dscr taux' },
+    { label: 'Simulateur croissance et trésorerie', kind: 'Simulateur', href: '#/labo/bfr', text: 'effet ciseaux bfr croissance tresorerie delais' },
+  ];
+  const run = () => {
+    const q = norm(input.value.trim());
+    if (q.length < 2) { box.hidden = true; return; }
+    const words = q.split(/\s+/);
+    const hits = index()
+      .map(it => { const l = norm(it.label), t = norm(it.text); return { it, score: words.every(w => t.includes(w)) ? (l.includes(q) ? 2 : 1) : 0 }; })
+      .filter(h => h.score).sort((a, b) => b.score - a.score).slice(0, 8);
+    box.innerHTML = hits.length
+      ? hits.map(({ it }) => `<a href="${it.href}">${esc(it.label)}<small>${esc(it.kind)}</small></a>`).join('')
+      : '<div class="empty">Aucun résultat</div>';
+    box.hidden = false;
+  };
+  input.addEventListener('input', run);
+  input.addEventListener('focus', run);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const first = box.querySelector('a'); if (first) { location.hash = first.getAttribute('href'); input.blur(); } }
+    if (e.key === 'Escape') { input.value = ''; box.hidden = true; }
+  });
+  box.addEventListener('click', e => { if (e.target.closest('a')) { input.value = ''; box.hidden = true; } });
+  document.addEventListener('click', e => { if (!e.target.closest('.side-search')) box.hidden = true; });
+})();
+
 // ---------- Routage ----------
 function render() {
   destroyCharts();
   const [view, arg, sub] = location.hash.replace(/^#\/?/, '').split('/');
-  const navView = view === 'test' ? 'cours' : view;
-  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.view === navView));
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.view === (view || '')));
+  document.getElementById('accountBtn')?.classList.toggle('active', view === 'compte');
+  closeMenu();
   updateAccountUI();
+  renderSidebar(view === 'cours' ? (arg || null) : null);
   // L'app est réservée aux utilisateurs connectés : sans compte vérifié, on affiche l'écran de connexion.
   document.body.classList.toggle('locked', !account);
   if (!account) return viewCompte();

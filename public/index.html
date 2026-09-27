@@ -2,37 +2,70 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Atelier Crédit</title>
 <meta name="description" content="Apprendre et pratiquer l'analyse financière et l'analyse crédit : cours sur les ratios, cas concrets, graphiques, simulateurs et exercices.">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#1f5fae">
+<meta name="theme-color" content="#13213a">
 <meta name="apple-mobile-web-app-title" content="Atelier Crédit">
 <meta property="og:title" content="Atelier Crédit">
 <meta property="og:description" content="Apprendre et pratiquer l'analyse financière et l'analyse crédit : cours, cas pratiques, simulateurs.">
 <meta property="og:image" content="icons/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
-<header class="topbar">
-  <a href="#/" class="brand"><img class="brand-mark" src="icons/icon.svg" alt="" width="30" height="30"> Atelier Crédit</a>
-  <nav id="nav">
-    <a href="#/cours" data-view="cours">Cours</a>
-    <a href="#/cas" data-view="cas">Cas pratiques</a>
-    <a href="#/labo" data-view="labo">Simulateurs</a>
-    <a href="#/exercices" data-view="exercices">Exercices</a>
-    <a href="#/dossier" data-view="dossier">Analyser un dossier</a>
-    <a href="#/fiches" data-view="fiches">Fiches méthode</a>
-  </nav>
-  <a href="#/compte" id="accountBtn" class="account-btn" data-view="compte">Se connecter</a>
-  <button id="themeToggle" class="icon-btn" aria-label="Changer de thème" title="Changer de thème"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
-</header>
-<main id="app" class="container"></main>
-<footer class="foot container">Montants en millions de FCFA (M). Entreprises et chiffres fictifs, à but pédagogique. Seuils indicatifs, à adapter selon le secteur et la banque.</footer>
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+    <div class="side-head">
+      <div class="side-eyebrow">Analyse financière · Crédit</div>
+      <a href="#/" class="side-brand"><img src="icons/icon.svg" alt="" width="40" height="40"><span>Atelier Crédit</span></a>
+      <p class="side-sub">Cours, cas pratiques et simulateurs pour lire des comptes comme un banquier</p>
+    </div>
+    <div class="side-block">
+      <div class="side-progress-label"><span>Progression</span><span id="sideProgressText">0 %</span></div>
+      <div class="side-progress"><div id="sideProgressBar"></div></div>
+    </div>
+    <div class="side-block side-scroll">
+      <div class="side-search">
+        <input id="sideSearch" type="search" placeholder="Rechercher une notion…" autocomplete="off" aria-label="Rechercher une notion">
+        <div id="searchResults" class="search-results" hidden></div>
+      </div>
+      <a href="#/compte" id="accountBtn" class="side-profile" data-view="compte"><span class="avatar" id="sideAvatar">?</span><span><b>Mon profil</b><small id="sideEmail">Non connecté</small></span></a>
+      <nav id="nav" class="side-nav">
+        <a href="#/" data-view=""><i>⌂</i>Accueil</a>
+        <a href="#/cours" data-view="cours"><i>📘</i>Cours</a>
+        <a href="#/test" data-view="test"><i>🎯</i>Mini-test final</a>
+        <a href="#/cas" data-view="cas"><i>🏦</i>Cas pratiques</a>
+        <a href="#/labo" data-view="labo"><i>📈</i>Simulateurs</a>
+        <a href="#/exercices" data-view="exercices"><i>✏️</i>Exercices</a>
+        <a href="#/dossier" data-view="dossier"><i>🔎</i>Analyser un dossier</a>
+        <a href="#/fiches" data-view="fiches"><i>📋</i>Fiches méthode</a>
+      </nav>
+      <div class="side-section">Programme du cours</div>
+      <ol id="sideChapters" class="side-chapters"></ol>
+    </div>
+    <div class="side-foot">
+      <button id="themeToggle" class="side-theme" type="button"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg><span>Changer de thème</span></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="main-col">
+    <header class="mobilebar">
+      <button id="menuBtn" class="menu-btn" type="button" aria-label="Ouvrir le menu" aria-controls="sidebar" aria-expanded="false"><span></span><span></span><span></span></button>
+      <a href="#/" class="mobile-brand"><img src="icons/icon.svg" alt="" width="28" height="28">Atelier Crédit</a>
+      <a href="#/compte" class="avatar small-avatar" id="mobileAvatar" aria-label="Mon profil">?</a>
+    </header>
+    <main id="app" class="container"></main>
+    <footer class="foot container">Montants en millions de FCFA (M). Entreprises et chiffres fictifs, à but pédagogique. Seuils indicatifs, à adapter selon le secteur et la banque.</footer>
+  </div>
+</div>
 
 <script src="engine.js"></script>
 <script src="data.js"></script>
