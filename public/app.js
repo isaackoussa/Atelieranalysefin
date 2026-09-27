@@ -301,6 +301,18 @@ function questionBlock(root, q, onReveal, alreadyDone) {
 }
 const fmtAns = q => `la réponse est <b>${q.answer.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${q.unit === 'M' ? 'M FCFA' : q.unit === 'j' ? 'jours' : q.unit}</b>`;
 
+// En-tête de page commun : icône, sur-titre, titre, texte et zone à droite (progression, actions).
+const pageHead = ({ icon, eyebrow = '', title, text = '', aside = '' }) => `
+  <header class="page-head">
+    <span class="page-icon" aria-hidden="true">${icon}</span>
+    <div class="page-head-text">${eyebrow ? `<div class="eyebrow">${eyebrow}</div>` : ''}<h1>${title}</h1>${text ? `<p>${text}</p>` : ''}</div>
+    ${aside ? `<div class="page-head-aside">${aside}</div>` : ''}
+  </header>`;
+const CASE_ICON = { boulangerie: '🥖', transport: '🚚', agro: '🌾', cacao: '🍫', quincaillerie: '🔩', clinique: '🏥' };
+const LEVEL_CLASS = { 'Débutant': 'lvl-1', 'Intermédiaire': 'lvl-2', 'Avancé': 'lvl-3' };
+const levelBadge = level => `<span class="badge ${LEVEL_CLASS[level] || ''}">${level}</span>`;
+const ring = (pct, label) => `<div class="ring-stat" style="--p:${Math.round(pct)}"><span>${label}</span></div>`;
+
 // ---------- Vues ----------
 function viewHome() {
   const done = CASES.filter(c => progress.cases[c.id]?.decision).length;
@@ -345,20 +357,19 @@ function viewHome() {
 
 function viewCases() {
   app.innerHTML = `
-    <h1>Cas pratiques</h1>
-    <p class="muted">Chaque cas suit la démarche d’un chargé d’affaires : lire les comptes, calculer, interpréter les graphiques, décider. Commencez par le niveau débutant.</p>
+    ${pageHead({ icon: '🏦', eyebrow: 'Pratique', title: 'Cas pratiques', text: 'Chaque cas suit la démarche d’un chargé d’affaires : lire les comptes, calculer, interpréter les graphiques, décider. Commencez par le niveau débutant.',
+      aside: ring(CASES.filter(c => progress.cases[c.id]?.decision).length / CASES.length * 100, `${CASES.filter(c => progress.cases[c.id]?.decision).length}/${CASES.length}`) })}
     <div class="grid grid-3">${CASES.map(c => {
       const p = progress.cases[c.id];
       const n = p ? Object.keys(p.answered).length + (p.decision ? 1 : 0) : 0;
       const last = c.data[c.data.length - 1];
-      return `<a class="card module-link" href="#/cas/${c.id}">
-        <span class="badge">${c.level}</span>
-        <h3 style="margin-top:10px">${c.name}</h3>
+      return `<a class="card module-link case-card" href="#/cas/${c.id}">
+        <div class="case-card-top"><span class="case-icon" aria-hidden="true">${CASE_ICON[c.id] || '🏢'}</span>${levelBadge(c.level)}</div>
+        <h3>${c.name}</h3>
         <p class="small muted">${c.sector}</p>
-        <p>${c.pitch}</p>
-        <p class="small muted">Demande : ${E.fmt(c.request.amount)} FCFA · CA ${E.fmt(last.ca)}</p>
-        <div class="progress-bar" aria-label="Progression"><div style="width:${n / 5 * 100}%"></div></div>
-        <div class="small muted" style="margin-top:4px">${n} / 5 étapes</div>
+        <p class="case-pitch">${c.pitch}</p>
+        <div class="case-meta"><span>Demande <b>${E.fmt(c.request.amount)}</b></span><span>CA <b>${E.fmt(last.ca)}</b></span></div>
+        <div class="case-progress"><div class="progress-bar" aria-label="Progression"><div style="width:${p?.decision ? 100 : n / 5 * 100}%"></div></div><span>${p?.decision ? '✓ Terminé' : `${n} / 5 étapes`}</span></div>
       </a>`;
     }).join('')}</div>`;
 }
@@ -446,10 +457,10 @@ function viewCase(id) {
   const step = CASE_STEPS[p.step] ? p.step : 0;
   const stepDone = s => s.id === 'decision' ? !!p.decision : s.id === 'dossier' ? p.step > 0 || Object.keys(p.answered).length > 0 : !!p.answered[s.id];
   app.innerHTML = `
-    <p class="small"><a href="#/cas">← Tous les cas</a></p>
-    <h1>${c.name}</h1>
-    <p class="muted">${c.sector} · <span class="badge">${c.level}</span></p>
-    <div class="stepper" role="tablist">${CASE_STEPS.map((s, i) => `<button role="tab" data-step="${i}" class="${i === step ? 'current' : ''} ${stepDone(s) ? 'done' : ''}"><span class="n">Étape ${i + 1}</span>${s.title}</button>`).join('')}</div>
+    <p class="small back"><a href="#/cas">← Tous les cas</a></p>
+    ${pageHead({ icon: CASE_ICON[c.id] || '🏢', eyebrow: c.sector, title: c.name, text: c.pitch,
+      aside: `${levelBadge(c.level)}<div class="head-amount"><small>Demande</small><b>${E.fmt(c.request.amount)} FCFA</b></div>` })}
+    <div class="stepper" role="tablist">${CASE_STEPS.map((s, i) => `<button role="tab" data-step="${i}" class="${i === step ? 'current' : ''} ${stepDone(s) ? 'done' : ''}" aria-label="Étape ${i + 1} : ${s.title}"><span class="n">${i + 1}</span><span class="t">${s.title}</span></button>`).join('')}</div>
     <div id="stepBody"></div>
     <div class="btn-row" style="margin-top:20px;justify-content:space-between">
       <button class="btn" id="prevStep" ${step === 0 ? 'disabled' : ''}>← Précédent</button>
@@ -714,8 +725,7 @@ function nextCaseLink(c) {
 // ---------- Simulateurs ----------
 function viewLabo(tab = 'bfr') {
   app.innerHTML = `
-    <h1>Simulateurs</h1>
-    <p class="muted">Changez une hypothèse et regardez immédiatement ce qui bouge. C’est la meilleure façon de comprendre les mécanismes.</p>
+    ${pageHead({ icon: '📈', eyebrow: 'Expérimenter', title: 'Simulateurs', text: 'Changez une hypothèse et regardez immédiatement ce qui bouge. C’est la meilleure façon de comprendre les mécanismes.' })}
     <div class="seg" style="margin-bottom:16px"><button data-t="bfr" class="${tab === 'bfr' ? 'on' : ''}">Croissance et trésorerie</button><button data-t="pret" class="${tab === 'pret' ? 'on' : ''}">Prêt et remboursement</button></div>
     <div id="sim"></div>`;
   app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { location.hash = '#/labo/' + b.dataset.t; });
@@ -861,8 +871,8 @@ function viewExercises() {
   const inst = ex.gen();
   const e = progress.exo;
   app.innerHTML = `
-    <h1>Exercices express</h1>
-    <p class="muted">Des chiffres nouveaux à chaque tirage. Faites le calcul à la main ou avec une calculatrice, puis vérifiez.</p>
+    ${pageHead({ icon: '✏️', eyebrow: 'S’entraîner', title: 'Exercices express', text: 'Des chiffres nouveaux à chaque tirage. Faites le calcul à la main ou avec une calculatrice, puis vérifiez.',
+      aside: ring(e.done ? e.correct / e.done * 100 : 0, e.done ? Math.round(e.correct / e.done * 100) + '%' : '–') })}
     <div class="tiles">
       ${tile('Réussis', `${e.correct} / ${e.done}`)}
       ${tile('Série en cours', e.streak)}
@@ -905,8 +915,7 @@ function viewDossier() {
   const example = { ...CASES[0].data[2], caN1: CASES[0].data[1].ca, loanAmount: 60, loanRate: 9, loanYears: 5 };
   const saved = store.get('dossier', example);
   app.innerHTML = `
-    <h1>Analyser un dossier</h1>
-    <p class="muted">Saisissez les comptes d’une entreprise (en M FCFA ou dans n’importe quelle unité, du moment qu’elle est la même partout). Le formulaire est pré-rempli avec l’exemple de la boulangerie.</p>
+    ${pageHead({ icon: '🔎', eyebrow: 'Outil', title: 'Analyser un dossier', text: 'Saisissez les comptes d’une entreprise (en M FCFA ou dans n’importe quelle unité, du moment qu’elle est la même partout). Le formulaire est pré-rempli avec l’exemple de la boulangerie.' })}
     <form class="card" id="dossierForm">
       ${DOSSIER_FIELDS.map(([title, fields]) => `<fieldset><legend>${title}</legend><div class="form-grid">${fields.map(([k, l]) =>
         `<label>${l}<input type="text" inputmode="decimal" name="${k}" value="${saved[k] ?? ''}"></label>`).join('')}</div></fieldset>`).join('')}
@@ -984,8 +993,7 @@ function analyzeDossier(d) {
 // ---------- Fiches ----------
 function viewFiches() {
   app.innerHTML = `
-    <h1>Fiches méthode</h1>
-    <p class="muted">L’essentiel à garder sous la main pendant les cas pratiques. Chaque fiche renvoie à un exemple chiffré tiré des cas.</p>
+    ${pageHead({ icon: '📋', eyebrow: 'Mémo', title: 'Fiches méthode', text: 'L’essentiel à garder sous la main pendant les cas pratiques. Chaque fiche renvoie à un exemple chiffré tiré des cas.' })}
     <div class="toc">${FICHES.map(fi => `<a class="chip" href="#fiche-${fi.id}" data-anchor="${fi.id}">${fi.title}</a>`).join('')}</div>
     <div class="grid grid-2">${FICHES.map(fi => `
       <article class="card fiche" id="fiche-${fi.id}">
@@ -1014,19 +1022,23 @@ function viewCoursIndex() {
   const families = [...new Set(Object.values(RATIOS).map(r => r.family))];
   const chapterOf = key => CHAPTERS.find(ch => ch.ratios.includes(key));
   app.innerHTML = `
-    <h1>Cours</h1>
-    <p class="muted">Huit chapitres courts pour comprendre chaque ratio : ce qu’il mesure, comment le calculer, comment l’interpréter et quels pièges éviter. Chaque notion est illustrée par les entreprises des cas pratiques, avec graphiques et quiz.</p>
-    <div class="insight" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><h4>Mini-test final</h4>${TEST_SIZE} questions tirées au hasard dans tous les chapitres${progress.tests?.best ? ` · meilleur score : ${progress.tests.best} %` : ''}.</div><a class="btn primary" href="#/test">Faire le mini-test →</a></div>
-    <div class="grid grid-2">${CHAPTERS.map((ch, i) => {
+    ${pageHead({ icon: '📘', eyebrow: 'Apprendre', title: 'Cours', text: 'Huit chapitres courts pour comprendre chaque ratio : ce qu’il mesure, comment le calculer, comment l’interpréter et quels pièges éviter, avec graphiques et quiz.',
+      aside: ring(Object.keys(cp).length / CHAPTERS.length * 100, `${Object.keys(cp).length}/${CHAPTERS.length}`) })}
+    <div class="chapter-list">${CHAPTERS.map((ch, i) => {
       const st = cp[ch.id];
-      return `<a class="card module-link" href="#/cours/${ch.id}">
-        <div class="small muted">Chapitre ${i + 1} · ${ch.duration}${ch.ratios.length ? ` · ${ch.ratios.length} ratios` : ''}</div>
-        <h3 style="margin-top:6px">${ch.title}</h3>
-        <p class="small muted">${ch.intro}</p>
-        ${st ? `<span class="status ${st.score === st.total ? 'good' : 'warn'}">Quiz : ${st.score} / ${st.total}</span>` : '<span class="badge">À lire</span>'}
+      return `<a class="card module-link chapter-card ${st ? 'is-done' : ''}" href="#/cours/${ch.id}">
+        <span class="chapter-num">${st ? '✓' : String(i + 1).padStart(2, '0')}</span>
+        <div class="chapter-body">
+          <h3>${ch.title}</h3>
+          <p class="small muted">${ch.intro}</p>
+          <div class="chapter-meta"><span>⏱ ${ch.duration}</span>${ch.ratios.length ? `<span>📊 ${ch.ratios.length} ratios</span>` : ''}<span>❓ ${ch.quiz.length} questions</span>
+          ${st ? `<span class="status ${st.score === st.total ? 'good' : 'warn'}">Quiz : ${st.score} / ${st.total}</span>` : ''}</div>
+        </div>
+        <span class="chapter-go" aria-hidden="true">→</span>
       </a>`;
     }).join('')}</div>
-    <h2 style="margin-top:28px">Index des ratios</h2>
+    <a class="test-banner" href="#/test"><span class="page-icon" aria-hidden="true">🎯</span><div><b>Mini-test final</b><span>${TEST_SIZE} questions tirées au hasard dans tous les chapitres${progress.tests?.best ? ` · meilleur score : ${progress.tests.best} %` : ''}</span></div><span class="btn primary">Commencer →</span></a>
+    <h2 class="section-title">Index des ratios</h2>
     <p class="muted small">Cliquez sur un ratio pour ouvrir sa fiche détaillée dans le chapitre correspondant.</p>
     <div class="card"><div class="table-wrap"><table>
       <thead><tr><th>Ratio</th><th>Famille</th><th>Formule</th><th>Repère favorable</th></tr></thead>
@@ -1047,18 +1059,24 @@ function viewChapter(id, anchor) {
   const y = lastYear(c), m = E.analyze(y), yr = c.years[c.years.length - 1];
   const prev = CHAPTERS[idx - 1], next = CHAPTERS[idx + 1];
   app.innerHTML = `
-    <p class="small"><a href="#/cours">← Tous les chapitres</a></p>
-    <div class="eyebrow">Chapitre ${idx + 1} · ${ch.duration}</div>
-    <h1>${ch.title}</h1>
-    <p class="muted" style="max-width:70ch">${ch.intro}</p>
-    <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <label for="exCase" class="small muted">Entreprise utilisée pour les exemples chiffrés :</label>
-      <select id="exCase" class="select">${CASES.map(x => `<option value="${x.id}" ${x.id === c.id ? 'selected' : ''}>${x.name} (${x.years[x.years.length - 1]})</option>`).join('')}</select>
+    <p class="small back"><a href="#/cours">← Tous les chapitres</a></p>
+    <header class="chapter-hero">
+      <div class="chapter-hero-num">${String(idx + 1).padStart(2, '0')}</div>
+      <div>
+        <div class="eyebrow">Chapitre ${idx + 1} sur ${CHAPTERS.length} · ${ch.duration}</div>
+        <h1>${ch.title}</h1>
+        <p>${ch.intro}</p>
+        <div class="chapter-dots" aria-label="Chapitres">${CHAPTERS.map((x, j) => `<a href="#/cours/${x.id}" class="${j === idx ? 'current' : ''} ${progress.cours?.[x.id] ? 'done' : ''}" title="${j + 1}. ${x.title}"></a>`).join('')}</div>
+      </div>
+    </header>
+    <div class="example-bar">
+      <label for="exCase">Exemples chiffrés sur</label>
+      <select id="exCase" class="select">${CASES.map(x => `<option value="${x.id}" ${x.id === c.id ? 'selected' : ''}>${CASE_ICON[x.id] || ''} ${x.name} (${x.years[x.years.length - 1]})</option>`).join('')}</select>
     </div>
-    ${ch.ratios.length ? `<div class="toc">${ch.ratios.map(k => `<a class="chip" href="#/cours/${ch.id}/${k}">${RATIOS[k].name}</a>`).join('')}</div>` : ''}
+    ${ch.ratios.length ? `<div class="toc"><span class="toc-label">Dans ce chapitre :</span>${ch.ratios.map(k => `<a class="chip" href="#/cours/${ch.id}/${k}">${RATIOS[k].name}</a>`).join('')}</div>` : ''}
     ${ch.blocks.map(b => `<section class="card lesson"><h2>${b.h}</h2>${b.html}</section>`).join('')}
     <div id="visual"></div>
-    ${ch.ratios.map(k => ratioCard(k, c, y, m, yr)).join('')}
+    ${ch.ratios.length ? `<h2 class="section-title">Les ratios en détail</h2>${ch.ratios.map((k, i) => ratioCard(k, c, y, m, yr, anchor ? anchor === k : i === 0)).join('')}` : ''}
     <section class="card"><h2>Quiz : testez votre interprétation</h2><div id="quiz"></div></section>
     ${ch.practice.length ? `<div class="insight"><h4>Mettre en pratique</h4><div class="btn-row">${ch.practice.map(([h, l]) => `<a class="btn" href="${h}">${l} →</a>`).join('')}</div></div>` : ''}
     <div class="btn-row" style="justify-content:space-between;margin-top:20px">
@@ -1067,26 +1085,34 @@ function viewChapter(id, anchor) {
     </div>`;
   document.getElementById('exCase').onchange = ev => { store.set('coursCase', ev.target.value); destroyCharts(); viewChapter(id); };
   renderVisual(ch.visual, c, y, m, yr);
-  ch.ratios.forEach(k => ratioChart(k, c));
+  // Les graphiques des fiches repliées sont dessinés à la première ouverture (un canevas caché n'a pas de taille).
+  app.querySelectorAll('details.ratio').forEach(d => {
+    const draw = () => { if (d.open && !d.dataset.drawn) { d.dataset.drawn = '1'; ratioChart(d.dataset.k, c); } };
+    d.addEventListener('toggle', draw);
+    draw();
+  });
   renderQuiz(ch, document.getElementById('quiz'));
-  if (anchor) setTimeout(() => document.getElementById('ratio-' + anchor)?.scrollIntoView({ behavior: 'smooth' }), 50);
+  if (anchor) setTimeout(() => document.getElementById('ratio-' + anchor)?.scrollIntoView({ behavior: 'smooth' }), 80);
 }
 
-function ratioCard(k, c, y, m, yr) {
+function ratioCard(k, c, y, m, yr, open = false) {
   const r = RATIOS[k];
   const v = m[k], t = E.THRESHOLDS[k];
   const st = t ? E.status(k, v) : null;
-  return `<section class="card ratio" id="ratio-${k}">
-    <div class="ratio-head"><h2>${r.name}</h2><span class="badge">${r.family}</span></div>
+  return `<details class="card ratio" id="ratio-${k}" data-k="${k}" ${open ? 'open' : ''}>
+    <summary class="ratio-sum">
+      <div class="ratio-sum-main"><span class="badge">${r.family}</span><h2>${r.name}</h2><span class="small muted">${esc(r.formula)}</span></div>
+      <div class="ratio-sum-side">${st ? `<span class="ratio-value">${E.fmt(v, t.fmt)}</span>${statusChip(st)}` : ''}<span class="chev" aria-hidden="true">⌄</span></div>
+    </summary>
+    <div class="ratio-body">
     <p>${r.measure}</p>
-    <span class="formula">${esc(r.formula)}</span>
     <div class="grid grid-2" style="margin-top:12px">
       <div>
         <h4 class="mini">Exemple : ${c.name}, ${yr}</h4>
         <span class="formula">${esc(r.calc(y, m)).replace(/\n/g, '<br>')}</span>
         ${st ? `<p>${statusChip(st)} <span class="small muted">selon la grille ci-dessous</span></p>` : ''}
         <h4 class="mini">Grille de lecture</h4>
-        <div class="table-wrap"><table><tbody>${r.grille.map(([range, txt, s]) => `<tr><td style="min-width:110px"><b>${range}</b></td><td>${statusChip(s, '')}</td><td class="small">${txt}</td></tr>`).join('')}</tbody></table></div>
+        <div class="table-wrap"><table class="grille"><tbody>${r.grille.map(([range, txt, s]) => `<tr><td style="min-width:110px"><b>${range}</b></td><td>${statusChip(s, '')}</td><td class="small">${txt}</td></tr>`).join('')}</tbody></table></div>
       </div>
       <div>
         <h4 class="mini">Comparaison des entreprises des cas pratiques</h4>
@@ -1100,7 +1126,8 @@ function ratioCard(k, c, y, m, yr) {
       <div><h4 class="mini">Comment l’améliorer</h4><ul>${r.leviers.map(x => `<li>${x}</li>`).join('')}</ul></div>
       <div><h4 class="mini">Pièges d’interprétation</h4><ul>${r.pieges.map(x => `<li>${x}</li>`).join('')}</ul></div>
     </div>
-  </section>`;
+    </div>
+  </details>`;
 }
 
 function ratioChart(k, c) {
@@ -1225,7 +1252,7 @@ function renderQuiz(ch, root) {
   root.innerHTML = ch.quiz.map((q, i) => `
     <div class="quiz-q" data-i="${i}">
       <p><b>${i + 1}. ${q.q}</b></p>
-      <div class="quiz-opts">${q.options.map((o, j) => `<button class="choice" data-j="${j}">${o}</button>`).join('')}</div>
+      <div class="quiz-opts">${q.options.map((o, j) => `<button class="choice opt" data-j="${j}"><span class="opt-letter">${'ABCD'[j]}</span><span>${o}</span></button>`).join('')}</div>
       <div class="quiz-fb"></div>
     </div>`).join('') + '<div id="quizScore"></div>';
   root.querySelectorAll('.quiz-q').forEach(el => {
@@ -1257,7 +1284,7 @@ function viewCompte(notice) {
   if (account) {
     const done = CASES.filter(c => progress.cases[c.id]?.decision).length;
     app.innerHTML = `
-      <h1>Mon compte</h1>
+      ${pageHead({ icon: '👤', eyebrow: 'Profil', title: 'Mon compte' })}
       <div class="card auth-card">
         <div class="small muted">Connecté avec</div>
         <p style="font-size:1.15rem;font-weight:600;margin-top:2px">${esc(account.email)}</p>
@@ -1380,9 +1407,8 @@ function viewTest() {
   if (!testRun) {
     const hist = t.history || [];
     app.innerHTML = `
-      <p class="small"><a href="#/cours">← Cours</a></p>
-      <h1>Mini-test final</h1>
-      <p class="muted" style="max-width:62ch">${TEST_SIZE} questions tirées au hasard dans tous les chapitres : calculs rapides et interprétation de ratios. À la fin, vous voyez votre score par chapitre et ce qu’il faut revoir. Chaque tentative est différente.</p>
+      ${pageHead({ icon: '🎯', eyebrow: 'Évaluation', title: 'Mini-test final', text: `${TEST_SIZE} questions tirées au hasard dans tous les chapitres : calculs rapides et interprétation de ratios. À la fin, vous voyez votre score par chapitre et ce qu’il faut revoir.`,
+        aside: ring(t.best || 0, t.best ? t.best + '%' : '–') })}
       <div class="tiles">
         ${tile('Meilleur score', t.best ? t.best + ' %' : '–')}
         ${tile('Tentatives', hist.length)}
@@ -1406,7 +1432,7 @@ function viewTest() {
       <div class="test-top"><span>Question ${i + 1} / ${qs.length}</span><span class="badge">${chapterTitle(q.ch)}</span></div>
       <div class="progress-bar"><div style="width:${i / qs.length * 100}%"></div></div>
       <h2 style="margin-top:16px;font-size:1.2rem">${q.q}</h2>
-      <div class="quiz-opts">${q.options.map((o, j) => `<button class="choice" data-j="${j}">${o}</button>`).join('')}</div>
+      <div class="quiz-opts">${q.options.map((o, j) => `<button class="choice opt" data-j="${j}"><span class="opt-letter">${'ABCD'[j]}</span><span>${o}</span></button>`).join('')}</div>
       <div id="tfb"></div>
     </div>`;
   app.querySelectorAll('.choice').forEach(btn => btn.onclick = () => {
@@ -1441,8 +1467,7 @@ function testResults() {
   const toReview = chs.filter(ch => byCh[ch.id].ok < byCh[ch.id].n);
   const level = pct >= 80 ? ['good', 'Excellent : vous maîtrisez l’analyse des ratios.'] : pct >= 50 ? ['warn', 'Bonne base. Revoyez les chapitres ci-dessous pour consolider.'] : ['bad', 'Reprenez les chapitres indiqués, puis retentez le test.'];
   app.innerHTML = `
-    <p class="small"><a href="#/cours">← Cours</a></p>
-    <h1>Résultat du mini-test</h1>
+    ${pageHead({ icon: pct >= 80 ? '🏆' : pct >= 50 ? '👍' : '📚', eyebrow: 'Mini-test final', title: 'Votre résultat', aside: ring(pct, pct + '%') })}
     <div class="tiles">
       ${tile('Score', `${score} / ${total}`, statusChip(level[0], pct + ' %'))}
       ${tile('Meilleur score', progress.tests.best + ' %')}
