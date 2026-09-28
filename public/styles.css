@@ -603,3 +603,99 @@ details.ratio[open] .chev { transform: rotate(180deg); padding: 4px 0 0; }
   table.grille td { border: 0; padding: 0; }
   table.grille td:nth-child(3) { grid-column: 1 / -1; }
 }
+
+/* ==========================================================================
+   Motion design
+   ========================================================================== */
+@property --p { syntax: "<number>"; inherits: false; initial-value: 0; }
+:root { --ease-out: cubic-bezier(0.22, 0.8, 0.24, 1); --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Entrée de page et cartes en cascade */
+@keyframes viewIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes riseIn { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
+#app.view-in > * { animation: viewIn 0.5s var(--ease-out) both; }
+#app.view-in > *:nth-child(2) { animation-delay: 0.05s; }
+#app.view-in > *:nth-child(3) { animation-delay: 0.1s; }
+#app.view-in > *:nth-child(n+4) { animation-delay: 0.15s; }
+#app.view-in .stagger { animation: riseIn 0.55s var(--ease-out) both; animation-delay: calc(0.12s + var(--i, 0) * 0.06s); }
+
+/* Apparition au défilement */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
+#app.view-in > .reveal { animation: none; }
+
+/* Barres et anneaux qui se remplissent */
+.progress-bar > div, .welcome-progress .bar > div { transition: width 1s var(--ease-out); }
+.ring-stat { transition: --p 1.1s var(--ease-out); }
+
+/* Survol et appui */
+.card.module-link, .chapter-card, .case-card { transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), border-color 0.2s ease; }
+.card.module-link:hover { transform: translateY(-4px); box-shadow: 0 2px 4px rgba(20, 32, 46, 0.05), 0 18px 40px rgba(20, 32, 46, 0.12); }
+.module-link:hover .module-icon, .case-card:hover .case-icon { animation: iconHop 0.5s var(--ease-spring); }
+@keyframes iconHop { 0% { transform: none; } 40% { transform: translateY(-5px) rotate(-6deg) scale(1.08); } 100% { transform: none; } }
+.btn { transition: background 0.2s ease, transform 0.2s var(--ease-spring), box-shadow 0.2s ease; }
+.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(23, 128, 106, 0.28); }
+.btn:active { transform: translateY(1px) scale(0.98); }
+.side-nav a { transition: background 0.2s ease, color 0.2s ease, padding 0.2s var(--ease-out); }
+.side-nav a:hover:not(.active) { padding-left: 16px; }
+.side-nav a.active { animation: pillIn 0.35s var(--ease-spring); }
+@keyframes pillIn { from { transform: scale(0.96); opacity: 0.6; } to { transform: none; opacity: 1; } }
+.side-chapters .ring.done { animation: checkPop 0.45s var(--ease-spring); }
+@keyframes checkPop { 0% { transform: scale(0.4); } 100% { transform: scale(1); } }
+.side-profile { transition: border-color 0.2s ease, transform 0.2s var(--ease-out); }
+.side-profile:hover { transform: translateY(-1px); }
+.chapter-card:hover .chapter-num { transform: scale(1.06) rotate(-3deg); }
+.chapter-num { transition: transform 0.3s var(--ease-spring); }
+
+/* Bandeaux : halos en mouvement lent */
+@keyframes drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-40px, 30px) scale(1.15); } }
+.welcome::after, .chapter-hero::after, .gate-panel::after { animation: drift 12s ease-in-out infinite; }
+.wave { display: inline-block; transform-origin: 70% 70%; animation: wave 2.4s ease-in-out 0.6s 2; }
+@keyframes wave { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
+.welcome .btn.primary::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%); background-size: 250% 100%; animation: shine 3.5s ease-in-out 1s infinite; pointer-events: none; }
+.welcome .btn.primary { position: relative; overflow: hidden; }
+@keyframes shine { 0% { background-position: 150% 0; } 40%, 100% { background-position: -100% 0; } }
+
+/* Réponses : rebond, tremblement, retour d'information */
+@keyframes pop { 0% { transform: scale(1); } 45% { transform: scale(1.035); } 100% { transform: scale(1); } }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+@keyframes fbIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.choice.right { animation: pop 0.45s var(--ease-spring); }
+.choice.wrong { animation: shake 0.45s ease; }
+.choice.selected { animation: pop 0.4s var(--ease-spring); }
+.feedback { animation: fbIn 0.35s var(--ease-out); }
+.q-input input.shake { animation: shake 0.4s ease; }
+
+/* Étapes : l'étape en cours respire */
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 0 5px var(--accent-soft); } 50% { box-shadow: 0 0 0 9px var(--accent-soft); } }
+.stepper button.current .n { animation: breathe 2.4s ease-in-out infinite; }
+.stepper .n { transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s var(--ease-spring); }
+.stepper button:hover .n { transform: scale(1.08); }
+
+/* Fiches repliables */
+details.ratio[open] .ratio-body { animation: viewIn 0.4s var(--ease-out); }
+.ratio-sum { transition: background 0.2s ease; }
+.chev { transition: transform 0.35s var(--ease-spring); }
+
+/* Tiroir mobile */
+.scrim { animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 960px) { .sidebar { transition: transform 0.35s var(--ease-out); } }
+
+/* Recherche */
+.search-results:not([hidden]) { animation: fbIn 0.2s var(--ease-out); }
+
+/* Confettis */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: hidden; }
+.confetti i { position: absolute; left: 50%; top: 45%; width: 7px; height: 12px; border-radius: 2px; animation: confetti var(--d) cubic-bezier(0.2, 0.6, 0.35, 1) forwards; }
+@keyframes confetti {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  35% { transform: translate(calc(var(--x) * 0.6), var(--y)) rotate(calc(var(--r) * 0.4)); opacity: 1; }
+  100% { transform: translate(var(--x), 60vh) rotate(var(--r)); opacity: 0; }
+}
+
+/* Réglage système « réduire les animations » */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1; transform: none; }
+}

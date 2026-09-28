@@ -2,6 +2,8 @@
 
 const app = document.getElementById('app');
 const E = Engine;
+// Respecte le réglage « réduire les animations » du système.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---------- Stockage local (confort : progression) ----------
@@ -147,6 +149,11 @@ function chart(canvasId, config) {
   const base = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: reduceMotion ? false : {
+      duration: 900, easing: 'easeOutQuart',
+      delay: ctx => (ctx.type === 'data' && ctx.mode === 'default' && !ctx.chart.$shown ? ctx.dataIndex * 70 + ctx.datasetIndex * 120 : 0),
+      onComplete: ctx => { ctx.chart.$shown = true; },
+    },
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
@@ -290,7 +297,10 @@ function questionBlock(root, q, onReveal, alreadyDone) {
     const x = parseNum(input.value);
     if (!isFinite(x)) { fb.innerHTML = '<div class="feedback info">Entrez un nombre (ex. 105 ou 10,6).</div>'; return; }
     if (isClose(x, q.answer, q.tol)) reveal('ok', `<b>Exact !</b> ${fmtAns(q)}.`);
-    else fb.innerHTML = `<div class="feedback ko"><b>Pas tout à fait.</b> Vérifiez vos calculs ou demandez un indice.${q.onWrong ? ' ' + q.onWrong(x) : ''}</div>`;
+    else {
+      input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
+      fb.innerHTML = `<div class="feedback ko"><b>Pas tout à fait.</b> Vérifiez vos calculs ou demandez un indice.${q.onWrong ? ' ' + q.onWrong(x) : ''}</div>`;
+    }
     if (q.onAttempt) q.onAttempt(isClose(x, q.answer, q.tol));
   };
   input.addEventListener('keydown', e => { if (e.key === 'Enter') root.querySelector('[data-a=check]').click(); });
@@ -338,7 +348,7 @@ function viewHome() {
   app.innerHTML = `
     <section class="welcome">
       <div class="eyebrow">Analyse financière et crédit</div>
-      <h1>${firstName ? `Bonjour ${esc(firstName)} 👋` : 'Bienvenue 👋'}</h1>
+      <h1>${firstName ? `Bonjour ${esc(firstName)}` : 'Bienvenue'} <span class="wave" aria-hidden="true">👋</span></h1>
       <p>Apprenez à lire des comptes comme un banquier : des cours courts sur chaque ratio, puis de vrais dossiers de crédit où vous calculez, interprétez et décidez.</p>
       <div class="btn-row"><a class="btn primary" href="${next.href}">Continuer : ${esc(next.label)} →</a></div>
       <div class="welcome-progress"><span>Progression</span><div class="bar"><div style="width:${pr.pct}%"></div></div><b>${pr.pct} %</b></div>
@@ -714,6 +724,7 @@ function renderDecision(c, p, body) {
     body.querySelectorAll('.choice').forEach(x => x.classList.toggle('selected', x === b));
     app.querySelector('[data-step="5"]').classList.add('done');
     show(b.dataset.k);
+    if (b.dataset.k === c.best) celebrate();
   });
   if (p.decision) show(p.decision);
 }
@@ -773,7 +784,7 @@ function simBfr(root) {
       { type: 'line', label: 'BFR', data: [], ...lineStyle(css('--s2')) },
       { type: 'bar', label: 'Trésorerie nette', data: [], ...barStyle(css('--s3')) },
     ] },
-    options: { plugins: { tooltip: tipM }, animation: { duration: 250 } },
+    options: { plugins: { tooltip: tipM }, animation: { duration: 250, delay: 0 } },
   });
   bindSliders(root, () => {
     const g = val('g') / 100, days = val('dso') + val('dio') - val('dpo');
@@ -828,7 +839,7 @@ function simLoan(root) {
       { label: 'Intérêts', data: [], ...barStyle(css('--s2')), borderRadius: { topLeft: 4, topRight: 4 }, stack: 's' },
       { type: 'line', label: 'CAF disponible', data: [], ...lineStyle(css('--s3')), borderDash: [6, 4], pointRadius: 0 },
     ] },
-    options: { plugins: { tooltip: tipM }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, animation: { duration: 250 } },
+    options: { plugins: { tooltip: tipM }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, animation: { duration: 250, delay: 0 } },
   });
   const update = () => {
     const P = val('lp'), rate = val('lr') / 100, n = val('ln'), caf = val('lcaf');
@@ -1227,7 +1238,7 @@ function renderVisual(kind, c, y, m, yr) {
       options: {
         plugins: { tooltip: { callbacks: { title: items => `Dettes / CP = ${items[0].label}`, label: ctx => ` ${ctx.dataset.label} : ${ctx.raw.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %` } } },
         scales: { x: { title: { display: true, text: 'Dettes / capitaux propres', color: css('--muted') }, ticks: { maxTicksLimit: 9 } }, y: { ticks: { callback: v => v + ' %' } } },
-        animation: { duration: 200 },
+        animation: { duration: 200, delay: 0 },
       },
     });
     bindSliders(root, () => {
@@ -1271,6 +1282,7 @@ function renderQuiz(ch, root) {
         const score = Object.values(answers).filter(Boolean).length;
         coursProgress()[ch.id] = { score, total: ch.quiz.length };
         saveProgress();
+        if (score === ch.quiz.length) celebrate();
         document.getElementById('quizScore').innerHTML = `<div class="feedback ${score === ch.quiz.length ? 'ok' : 'info'}" style="margin-top:12px"><b>Score : ${score} / ${ch.quiz.length}.</b> ${score === ch.quiz.length ? 'Parfait, passez au chapitre suivant.' : 'Relisez les fiches concernées puis retentez le quiz (rechargez la page).'}</div>`;
       }
     });
@@ -1465,6 +1477,7 @@ function testResults() {
   results.forEach(r => { (byCh[r.ch] ||= { ok: 0, n: 0 }); byCh[r.ch].n++; if (r.ok) byCh[r.ch].ok++; });
   const chs = CHAPTERS.filter(ch => byCh[ch.id]);
   const toReview = chs.filter(ch => byCh[ch.id].ok < byCh[ch.id].n);
+  if (!testRun.celebrated && pct >= 80) { testRun.celebrated = true; setTimeout(celebrate, 300); }
   const level = pct >= 80 ? ['good', 'Excellent : vous maîtrisez l’analyse des ratios.'] : pct >= 50 ? ['warn', 'Bonne base. Revoyez les chapitres ci-dessous pour consolider.'] : ['bad', 'Reprenez les chapitres indiqués, puis retentez le test.'];
   app.innerHTML = `
     ${pageHead({ icon: pct >= 80 ? '🏆' : pct >= 50 ? '👍' : '📚', eyebrow: 'Mini-test final', title: 'Votre résultat', aside: ring(pct, pct + '%') })}
@@ -1563,6 +1576,89 @@ function closeMenu() {
   box.addEventListener('click', e => { if (e.target.closest('a')) { input.value = ''; box.hidden = true; } });
   document.addEventListener('click', e => { if (!e.target.closest('.side-search')) box.hidden = true; });
 })();
+
+// ---------- Animations (motion design) ----------
+// Entrée des vues, cartes en cascade, compteurs, barres et anneaux qui se remplissent,
+// apparition au défilement et confettis sur les réussites.
+function countUp(el) {
+  const txt = el.textContent;
+  const m = txt.match(/^(-?\d(?:\d|[\s  ](?=\d))*(?:,\d+)?)(.*)$/s);
+  if (!m) return;
+  const target = parseFloat(m[1].replace(/[\s  ]/g, '').replace(',', '.'));
+  if (!isFinite(target) || target === 0) return;
+  const dec = (m[1].split(',')[1] || '').length;
+  const t0 = performance.now(), dur = 800;
+  const step = t => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = k < 1 ? (target * e).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[2] : txt;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function growBars(root) {
+  root.querySelectorAll('.progress-bar > div, .welcome-progress .bar > div').forEach(bar => {
+    const w = bar.style.width;
+    bar.style.transition = 'none';
+    bar.style.width = '0';
+    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = ''; bar.style.width = w; }));
+  });
+  root.querySelectorAll('.ring-stat').forEach(r => {
+    const p = r.style.getPropertyValue('--p');
+    r.style.setProperty('--p', '0');
+    requestAnimationFrame(() => requestAnimationFrame(() => r.style.setProperty('--p', p)));
+  });
+}
+const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+  entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); revealObserver.unobserve(en.target); } });
+}, { rootMargin: '0px 0px -40px 0px', threshold: 0.05 }) : null;
+
+function animateView() {
+  if (reduceMotion) return;
+  app.classList.remove('view-in');
+  void app.offsetWidth; // relance l'animation d'entrée
+  app.classList.add('view-in');
+  app.querySelectorAll('.grid, .tiles, .chapter-list, .quiz-opts, .choices, .modules, .gate-list').forEach(g => {
+    [...g.children].forEach((el, i) => { el.style.setProperty('--i', Math.min(i, 10)); el.classList.add('stagger'); });
+  });
+  app.querySelectorAll('.tile .value, .head-amount b').forEach(countUp);
+  growBars(app);
+  // Les blocs situés sous la ligne de flottaison apparaissent au défilement.
+  if (revealObserver) {
+    const limit = window.innerHeight;
+    app.querySelectorAll('#app > .card, #app > section, #app > details, #app > .grid > .card, #app > .insight, .ratio, .lesson').forEach(el => {
+      if (el.getBoundingClientRect().top > limit) { el.classList.add('reveal'); revealObserver.observe(el); }
+    });
+  }
+}
+// Rattrapage : après un saut de défilement, tout bloc déjà dépassé ou visible est affiché.
+let revealTick = false;
+window.addEventListener('scroll', () => {
+  if (revealTick) return;
+  revealTick = true;
+  requestAnimationFrame(() => {
+    revealTick = false;
+    document.querySelectorAll('.reveal:not(.in)').forEach(el => {
+      if (el.getBoundingClientRect().top < window.innerHeight) { el.classList.add('in'); revealObserver?.unobserve(el); }
+    });
+  });
+}, { passive: true });
+// Chaque fois qu'une vue remplace le contenu principal, on joue l'animation d'entrée.
+new MutationObserver(() => requestAnimationFrame(animateView)).observe(app, { childList: true });
+
+function celebrate() {
+  if (reduceMotion) return;
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+  layer.setAttribute('aria-hidden', 'true');
+  const colors = ['#34b393', '#f5a524', '#3987e5', '#eb6834', '#ffffff', '#1baf7a'];
+  for (let i = 0; i < 90; i++) {
+    const s = document.createElement('i');
+    s.style.cssText = `--x:${(Math.random() * 2 - 1) * 48}vw;--y:${-(15 + Math.random() * 30)}vh;--r:${Math.random() * 900 - 450}deg;--d:${1.1 + Math.random() * 0.9}s;background:${colors[i % colors.length]};animation-delay:${Math.random() * 0.12}s;${i % 3 ? '' : 'border-radius:50%;width:8px;height:8px;'}`;
+    layer.appendChild(s);
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 2400);
+}
 
 // ---------- Routage ----------
 function render() {
